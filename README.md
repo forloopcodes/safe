@@ -1,3 +1,5 @@
+
+
 # SafeInstall
 
 [![Crates.io](https://img.shields.io/crates/v/safeinstall?style=flat-square)](https://crates.io/crates/safeinstall)
@@ -19,6 +21,8 @@
 ```
 
 SafeInstall inspects remote installer scripts before executing them. It downloads the artifact, runs static analysis, checks against vulnerability databases and reputation sources, then decides whether it's safe to run.
+
+https://github.com/user-attachments/assets/633bf111-6226-4e0b-8bcf-4d3e11054a28
 
 ## Why
 
