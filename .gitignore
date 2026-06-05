@@ -1,0 +1,10 @@
+/target/
+.env
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+.omo
+.opencode
+cargo.lock
