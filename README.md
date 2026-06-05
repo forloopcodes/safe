@@ -37,7 +37,7 @@ SafeInstall inspects remote installer scripts before executing them. It download
 
 ## Install
 
-<details>
+<details open>
 <summary><strong>From crates.io</strong></summary>
 
 ```sh
@@ -46,7 +46,7 @@ cargo install safeinstall
 
 </details>
 
-<details>
+<details open>
 <summary><strong>Build from source</strong></summary>
 
 ```sh
