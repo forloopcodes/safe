@@ -26,14 +26,14 @@ SafeInstall inspects remote installer scripts before executing them. It download
 
 ## Features
 
-- **Pre-execution analysis** -- downloads and inspects before any code executes
-- **Static behavior detection** -- flags privilege escalation, persistence, and network exfiltration patterns
-- **Vulnerability scanning** -- queries OSV (CVE database) and GitHub Advisory Database
-- **Multi-source reputation** -- domain checks, URLHaus, VirusTotal, and Cloudflare Radar
-- **Package manager support** -- recognizes npm, pip, and cargo install commands
-- **Energy-based scoring** -- exponential saturation prevents score inflation from duplicate findings
-- **Adaptive prompts** -- `[Y/n]` for low risk, `[y/N]` for high risk, `-y` to skip
-- **JSON output** -- machine-readable for CI pipelines and automation
+- **Pre-execution analysis** - downloads and inspects before any code executes
+- **Static behavior detection** - flags privilege escalation, persistence, and network exfiltration patterns
+- **Vulnerability scanning** - queries OSV (CVE database) and GitHub Advisory Database
+- **Multi-source reputation** - domain checks, URLHaus, VirusTotal, and Cloudflare Radar
+- **Package manager support** - recognizes npm, pip, and cargo install commands
+- **Energy-based scoring** - exponential saturation prevents score inflation from duplicate findings
+- **Adaptive prompts** - `[Y/n]` for low risk, `[y/N]` for high risk, `-y` to skip
+- **JSON output** - machine-readable for CI pipelines and automation
 
 ## Install
 
@@ -140,8 +140,8 @@ API keys are stored in a JSON file in your platform config directory:
 
 Use `safe set <key> <value>` to set them. Current keys:
 
-- `VIRUSTOTAL_API_KEY` -- VirusTotal file hash lookups
-- `CLOUDFLARE_API_TOKEN` -- Cloudflare Radar domain ranking
+- `VIRUSTOTAL_API_KEY` - VirusTotal file hash lookups
+- `CLOUDFLARE_API_TOKEN` - Cloudflare Radar domain ranking
 
 > [!NOTE]
 > API keys are optional. All static analysis, OSV vulnerability scanning, domain reputation checks, and URLHaus lookups work without any configuration.
@@ -195,12 +195,12 @@ src/
 
 ## Troubleshooting
 
-**"command exited with status"** -- The installer or command failed during execution. Check the output above the error for details.
+**"command exited with status"** - The installer or command failed during execution. Check the output above the error for details.
 
-**"Cancelled."** -- You declined the confirmation prompt, or pressed Enter on a `[y/N]` prompt.
+**"Cancelled."** - You declined the confirmation prompt, or pressed Enter on a `[y/N]` prompt.
 
-**"Installer exceeds the 20 MB analysis limit"** -- The downloaded file is too large. SafeInstall caps analysis at 20 MB.
+**"Installer exceeds the 20 MB analysis limit"** - The downloaded file is too large. SafeInstall caps analysis at 20 MB.
 
-**No vulnerability results** -- OSV and GitHub Advisory lookups require network access. If you're offline, only static analysis and cached reputation checks apply.
+**No vulnerability results** - OSV and GitHub Advisory lookups require network access. If you're offline, only static analysis and cached reputation checks apply.
 
-If this project helps you, star it on GitHub -- it helps a lot!
+If this project helps you, star it on GitHub - it helps a lot!
