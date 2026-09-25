@@ -1,6 +1,8 @@
 // Command definitions expose focused inspection and guarded installer execution workflows.
 // Arguments preserve concise automation support alongside clear interactive safety controls.
 
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Subcommand)]
@@ -9,11 +11,22 @@ pub enum Command {
         source: String,
         #[arg(long)]
         json: bool,
+        #[arg(long, help = "Skip the machine learning classifier")]
+        no_ml: bool,
     },
     Run {
         command: String,
         #[arg(short = 'y', long, help = "Skip confirmation prompt")]
         yes: bool,
+        #[arg(long)]
+        json: bool,
+        #[arg(long, help = "Skip the machine learning classifier")]
+        no_ml: bool,
+    },
+    #[command(hide = true, about = "Print model feature vectors for local scripts")]
+    Features {
+        #[arg(required = true)]
+        paths: Vec<PathBuf>,
         #[arg(long)]
         json: bool,
     },

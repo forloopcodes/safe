@@ -8,3 +8,5 @@ Thumbs.db
 .omo
 .opencode
 cargo.lock
+# ML corpus: raw scripts are fetched/derived locally and never committed.
+ml/corpus/

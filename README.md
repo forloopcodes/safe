@@ -38,6 +38,46 @@ https://github.com/user-attachments/assets/633bf111-6226-4e0b-8bcf-4d3e11054a28
 - **Energy-based scoring** - exponential saturation prevents score inflation from duplicate findings
 - **Adaptive prompts** - `[Y/n]` for low risk, `[y/N]` for high risk, `-y` to skip
 - **JSON output** - machine-readable for CI pipelines and automation
+- **ML classifier** - a RandomForest trained on installer behavior adds a second, learned opinion alongside the hand-written rules
+
+## Machine learning classifier
+
+Static rules catch known-bad patterns one at a time. The ML classifier adds a second
+opinion that weighs **57 behavioral features** of a script together — the same 10 rule
+hits plus entropy, line statistics, URL/IP counts, base64 density, PowerShell obfuscation
+signals, credential-access and anti-forensics markers, and the installer type — and returns
+a calibrated `p(malicious)`. When it crosses the model's threshold it becomes an **ML Model**
+finding that feeds the same energy-based risk score.
+
+The model is a `RandomForest` trained offline (`ml/`) and exported to **pure Rust**
+(`src/ml_model.rs`) with [`m2cgen`](https://github.com/BayesWitnesses/m2cgen). Inference is a
+few thousand branch comparisons: no Python, no network, no model file to ship. Python and the
+exported Rust agree on `p(malicious)` to within `5e-11`.
+
+| Metric (held-out test set) | Value |
+|---|---|
+| Precision | 0.992 |
+| Recall | 0.992 |
+| F1 | 0.992 |
+| ROC AUC | 0.999 |
+| Threshold | 0.53 |
+
+Feature extraction lives in `src/features.rs` and is exposed through a hidden
+`safe features <file> --json` subcommand, so the training pipeline and the shipped binary
+compute an identical representation. Pass `--no-ml` to `inspect`/`run` to skip the classifier.
+
+Training data, methodology, and limitations are documented in [`ml/README.md`](ml/README.md).
+The benign class is features of real installer scripts (rustup, nvm, Homebrew, Deno, Docker,
+Helm, and dozens more); the malicious class is synthesized in **feature space** from documented
+MITRE ATT&CK indicator distributions — no malware is stored, committed, or executed anywhere in
+this repository.
+
+<table>
+<tr>
+<td><img src="ml/screenshots/inspect_benign.png" alt="benign installer, no ML finding"></td>
+<td><img src="ml/screenshots/inspect_suspicious.png" alt="suspicious script flagged by ML Model"></td>
+</tr>
+</table>
 
 ## Install
 
@@ -184,6 +224,9 @@ src/
 ├── command.rs           # Input classifier (URL, curl-pipe, package manager)
 ├── source.rs            # Downloader and installer type detection
 ├── analyzer.rs          # Static analysis rules and scoring engine
+├── features.rs          # ML feature extraction (57 features, shared with ml/)
+├── ml.rs                # Classifier inference and ML Model findings
+├── ml_model.rs          # RandomForest exported to pure Rust (generated)
 ├── executor.rs          # Execution gates and interpreter dispatch
 ├── report.rs            # Terminal and JSON output formatting
 ├── config.rs            # Persistent config storage (API keys)

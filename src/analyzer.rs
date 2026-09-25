@@ -38,6 +38,8 @@ pub struct Assessment {
     pub risk: Severity,
     pub findings: Vec<Finding>,
     pub package_summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ml_probability: Option<f64>,
 }
 
 impl Assessment {
@@ -49,6 +51,7 @@ impl Assessment {
 }
 
 struct Rule {
+    key: &'static str,
     title: &'static str,
     detail: &'static str,
     severity: Severity,
@@ -136,12 +139,25 @@ pub fn analyze(artifact: &Artifact) -> Assessment {
         risk,
         findings,
         package_summary: None,
+        ml_probability: None,
     }
+}
+
+/// Reports whether each static rule matches, keyed for use as model features.
+pub fn rule_hits(text: &str) -> Vec<(&'static str, bool)> {
+    rules()
+        .into_iter()
+        .map(|rule| {
+            let hit = Regex::new(rule.pattern).expect("valid analyzer rule").is_match(text);
+            (rule.key, hit)
+        })
+        .collect()
 }
 
 fn rules() -> Vec<Rule> {
     vec![
         Rule {
+            key: "exec_downloaded",
             title: "Executes downloaded code",
             detail: "Remote content is passed directly into an interpreter",
             severity: Severity::Critical,
@@ -149,6 +165,7 @@ fn rules() -> Vec<Rule> {
             pattern: r"(?im)^\s*(curl|wget|irm|invoke-webrequest)[^\r\n|;]*(\||;)[^\r\n]*(sh|bash|iex|invoke-expression|python)",
         },
         Rule {
+            key: "downloads",
             title: "Downloads additional content",
             detail: "Installer retrieves additional remote content during execution",
             severity: Severity::Medium,
@@ -156,6 +173,7 @@ fn rules() -> Vec<Rule> {
             pattern: r"(?im)^\s*(curl|wget|irm|invoke-webrequest)\b",
         },
         Rule {
+            key: "privilege",
             title: "Requests elevated privileges",
             detail: "Installer requests root or administrator privileges",
             severity: Severity::High,
@@ -163,6 +181,7 @@ fn rules() -> Vec<Rule> {
             pattern: r"(?im)(^|\s)(sudo|runas|start-process\s+.+-verb\s+runas)(\s|$)",
         },
         Rule {
+            key: "persistence",
             title: "Creates persistent service",
             detail: "Installer enables a service or scheduled startup task",
             severity: Severity::High,
@@ -170,6 +189,7 @@ fn rules() -> Vec<Rule> {
             pattern: r"(?i)(systemctl\s+enable|new-service|sc\.exe\s+create|schtasks|crontab)",
         },
         Rule {
+            key: "profile",
             title: "Modifies shell profile",
             detail: "Installer changes a shell profile or executable search path",
             severity: Severity::Medium,
@@ -177,6 +197,7 @@ fn rules() -> Vec<Rule> {
             pattern: r"(?i)(\.bashrc|\.zshrc|\.profile|microsoft\.powershell_profile|setx\s+path|environmentvariable.*path)",
         },
         Rule {
+            key: "chmod",
             title: "Changes executable permissions",
             detail: "Installer marks downloaded or local content executable",
             severity: Severity::Medium,
@@ -184,6 +205,7 @@ fn rules() -> Vec<Rule> {
             pattern: r"(?im)\bchmod\s+(\+x|[0-7]*7[0-7]*)",
         },
         Rule {
+            key: "registry",
             title: "Modifies system registry",
             detail: "Installer writes Windows registry configuration",
             severity: Severity::High,
@@ -191,6 +213,7 @@ fn rules() -> Vec<Rule> {
             pattern: r"(?i)(reg\.exe\s+(add|delete)|new-itemproperty|set-itemproperty).*(hklm|hkcu|registry)",
         },
         Rule {
+            key: "disable_security",
             title: "Disables security controls",
             detail: "Installer attempts to weaken security tooling or policy",
             severity: Severity::Critical,
@@ -198,6 +221,7 @@ fn rules() -> Vec<Rule> {
             pattern: r"(?i)(set-mppreference.*disablerealtimemonitoring|ufw\s+disable|setenforce\s+0|disableantispyware)",
         },
         Rule {
+            key: "encoded_exec",
             title: "Contains encoded execution",
             detail: "Installer uses encoded or decoded content during execution",
             severity: Severity::Critical,
@@ -205,6 +229,7 @@ fn rules() -> Vec<Rule> {
             pattern: r"(?i)(frombase64string|base64\s+(-d|--decode)|encodedcommand|eval\s*\()",
         },
         Rule {
+            key: "recursive_delete",
             title: "Deletes files recursively",
             detail: "Installer performs broad recursive deletion",
             severity: Severity::Critical,

@@ -1,0 +1,80 @@
+{
+  "selected_model": "random_forest",
+  "threshold": 0.53,
+  "n_train": 756,
+  "n_test": 252,
+  "test_at_0.5": {
+    "precision": 0.9562,
+    "recall": 0.9924,
+    "f1": 0.974
+  },
+  "test": {
+    "precision": 0.9924,
+    "recall": 0.9924,
+    "f1": 0.9924
+  },
+  "candidates": {
+    "random_forest": {
+      "precision": 0.9562,
+      "recall": 0.9924,
+      "f1": 0.974
+    },
+    "gradient_boosting": {
+      "precision": 0.9776,
+      "recall": 0.9924,
+      "f1": 0.985
+    }
+  },
+  "roc_auc": 0.9991,
+  "parity_max_abs_diff": 4.603173398010085e-11,
+  "top_features": [
+    [
+      "rule_downloads",
+      0.2532310013569165
+    ],
+    [
+      "rule_privilege",
+      0.1342955026455316
+    ],
+    [
+      "rule_chmod",
+      0.06227816887034562
+    ],
+    [
+      "process_kill",
+      0.04624987273920378
+    ],
+    [
+      "entropy",
+      0.04496256916393435
+    ],
+    [
+      "comment_ratio",
+      0.038135863243938514
+    ],
+    [
+      "ip_url_count",
+      0.03341998750439424
+    ],
+    [
+      "rule_exec_downloaded",
+      0.030194127483868342
+    ],
+    [
+      "background_exec",
+      0.028927429555758107
+    ],
+    [
+      "long_line_ratio",
+      0.02443127221672538
+    ],
+    [
+      "rule_encoded_exec",
+      0.02003845921314269
+    ],
+    [
+      "exfiltration",
+      0.01934983848917083
+    ]
+  ]
+}
