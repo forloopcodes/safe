@@ -23,7 +23,13 @@ pub struct Artifact {
     pub url: Url,
 }
 
+const MAX_BYTES: usize = 20_000_000;
+
 pub async fn acquire(input: &str) -> Result<Artifact> {
+    let path = std::path::Path::new(input.trim());
+    if path.is_file() {
+        return read_local(path);
+    }
     let url = extract_url(input)?;
     let mut response = reqwest::get(url.clone())
         .await
@@ -33,7 +39,7 @@ pub async fn acquire(input: &str) -> Result<Artifact> {
     }
     if response
         .content_length()
-        .is_some_and(|size| size > 20_000_000)
+        .is_some_and(|size| size > MAX_BYTES as u64)
     {
         bail!("installer exceeds the 20 MB analysis limit");
     }
@@ -46,7 +52,7 @@ pub async fn acquire(input: &str) -> Result<Artifact> {
         .to_owned();
     let mut bytes = Vec::new();
     while let Some(chunk) = response.chunk().await? {
-        if bytes.len() + chunk.len() > 20_000_000 {
+        if bytes.len() + chunk.len() > MAX_BYTES {
             bail!("installer exceeds the 20 MB analysis limit");
         }
         bytes.extend_from_slice(&chunk);
@@ -56,6 +62,26 @@ pub async fn acquire(input: &str) -> Result<Artifact> {
     }
     Ok(Artifact {
         kind: detect_kind(&url, &content_type, &bytes),
+        bytes,
+        url,
+    })
+}
+
+/// Loads a local script for offline inspection; it is analyzed exactly like a download.
+pub fn read_local(path: &std::path::Path) -> Result<Artifact> {
+    let path = path
+        .canonicalize()
+        .with_context(|| format!("failed to resolve {}", path.display()))?;
+    if std::fs::metadata(&path)?.len() > MAX_BYTES as u64 {
+        bail!("installer exceeds the 20 MB analysis limit");
+    }
+    let bytes = std::fs::read(&path).with_context(|| format!("failed to read {}", path.display()))?;
+    if bytes.is_empty() {
+        bail!("installer file is empty");
+    }
+    let url = Url::from_file_path(&path).map_err(|()| anyhow::anyhow!("invalid file path {}", path.display()))?;
+    Ok(Artifact {
+        kind: detect_kind(&url, "", &bytes),
         bytes,
         url,
     })
@@ -88,6 +114,7 @@ fn detect_kind(url: &Url, content_type: &str, bytes: &[u8]) -> InstallerKind {
     } else if path.ends_with(".py") {
         InstallerKind::Python
     } else if path.ends_with(".sh")
+        || path.ends_with(".bash")
         || first_line.starts_with("#!")
             && (first_line.contains("bash") || first_line.contains("/sh"))
     {
@@ -119,6 +146,15 @@ mod tests {
                 .as_str(),
             "https://example.com/install.sh"
         );
+    }
+
+    #[test]
+    fn reads_local_script() {
+        let mut file = tempfile::Builder::new().suffix(".ps1").tempfile().unwrap();
+        std::io::Write::write_all(&mut file, b"Write-Host hi").unwrap();
+        let artifact = read_local(file.path()).unwrap();
+        assert_eq!(artifact.url.scheme(), "file");
+        assert_eq!(artifact.kind, InstallerKind::PowerShell);
     }
 
     #[test]

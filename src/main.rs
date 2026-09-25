@@ -6,6 +6,9 @@ mod cli;
 mod command;
 mod config;
 mod executor;
+mod features;
+mod ml;
+mod ml_model;
 mod registry;
 mod report;
 mod reputation;
@@ -51,7 +54,8 @@ async fn main() -> Result<()> {
                 Err(msg) => eprintln!("{msg}"),
             }
         }
-        Command::Inspect { source, json } => {
+        Command::Features { paths, json } => print_features(&paths, json)?,
+        Command::Inspect { source, json, no_ml } => {
             let cmd = command::parse(&source);
             if !json {
                 report::print_header();
@@ -66,14 +70,19 @@ async fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    let (_, assessment) = stream_url(&source, &config, json).await?;
+                    let (_, assessment) = stream_url(&source, &config, json, !no_ml).await?;
                     if json {
                         report::print_json(&assessment)?;
                     }
                 }
             }
         }
-        Command::Run { command, yes, json } => {
+        Command::Run {
+            command,
+            yes,
+            json,
+            no_ml,
+        } => {
             let cmd = command::parse(&command);
             if !json {
                 report::print_header();
@@ -92,7 +101,7 @@ async fn main() -> Result<()> {
                     executor::run_shell(raw, &assessment, yes).await?;
                 }
                 _ => {
-                    let (artifact, assessment) = stream_url(&command, &config, json).await?;
+                    let (artifact, assessment) = stream_url(&command, &config, json, !no_ml).await?;
                     if json {
                         report::print_json(&assessment)?;
                     }
@@ -108,6 +117,7 @@ async fn stream_url(
     source: &str,
     config: &reputation::ReputationConfig,
     json: bool,
+    use_ml: bool,
 ) -> Result<(source::Artifact, analyzer::Assessment)> {
     if !json {
         print!("  Downloading... ");
@@ -137,8 +147,31 @@ async fn stream_url(
         }
     }
 
-    let host = artifact.url.host_str().unwrap_or("unknown");
     let mut prev_source: Option<&'static str> = None;
+
+    if use_ml && let Some(prediction) = ml::predict(&artifact) {
+        assessment.ml_probability = Some(prediction.probability);
+        match ml::finding(&prediction) {
+            Some(finding) => {
+                if !json {
+                    report::print_finding(&finding, &mut prev_source);
+                }
+                assessment.findings.push(finding);
+            }
+            None if !json => {
+                println!();
+                println!("  ML Model: {:.0}% malicious probability, below threshold", prediction.probability * 100.0);
+            }
+            None => {}
+        }
+    }
+
+    // Local files have no host, so network reputation sources do not apply.
+    if artifact.url.scheme() == "file" {
+        return Ok(finish(artifact, assessment, json));
+    }
+
+    let host = artifact.url.host_str().unwrap_or("unknown");
 
     if let Some(finding) = reputation::domain::check(host) {
         if !json {
@@ -175,12 +208,54 @@ async fn stream_url(
         assessment.findings.push(finding);
     }
 
+    Ok(finish(artifact, assessment, json))
+}
+
+fn finish(
+    artifact: source::Artifact,
+    mut assessment: analyzer::Assessment,
+    json: bool,
+) -> (source::Artifact, analyzer::Assessment) {
     assessment.recalculate();
     if !json {
         let sources = report::source_breakdown(&assessment.findings);
         report::print_score(assessment.score, &assessment.risk, &sources);
     }
-    Ok((artifact, assessment))
+    (artifact, assessment)
+}
+
+fn print_features(paths: &[std::path::PathBuf], json: bool) -> Result<()> {
+    let names = features::names();
+    for path in paths {
+        let artifact = source::read_local(path)?;
+        let values = features::extract(&artifact);
+        let probability = ml::probability(&values);
+        if json {
+            let map: serde_json::Map<String, serde_json::Value> = names
+                .iter()
+                .zip(&values)
+                .map(|(n, v)| ((*n).to_owned(), serde_json::json!(v)))
+                .collect();
+            let record = serde_json::json!({
+                "path": path.display().to_string(),
+                "installer_type": artifact.kind,
+                "ml_probability": probability,
+                "features": map,
+            });
+            if paths.len() == 1 {
+                println!("{}", serde_json::to_string_pretty(&record)?);
+            } else {
+                println!("{record}");
+            }
+        } else {
+            println!("{} ({:?})", path.display(), artifact.kind);
+            for (n, v) in names.iter().zip(&values) {
+                println!("  {n:<24} {v:.4}");
+            }
+            println!("  {:<24} {probability:.4}", "ml_probability");
+        }
+    }
+    Ok(())
 }
 
 async fn stream_pm(registry: &str, package: &str, raw: &str, json: bool) -> Result<analyzer::Assessment> {
@@ -327,6 +402,7 @@ async fn stream_pm(registry: &str, package: &str, raw: &str, json: bool) -> Resu
         risk,
         findings,
         package_summary: summary,
+        ml_probability: None,
     };
     if !json {
         report::print_score(assessment.score, &assessment.risk, &sources);
